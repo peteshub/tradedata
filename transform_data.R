@@ -4,29 +4,43 @@ require(dplyr)
 require(zoo)
 require(ggplot2)
 
-setwd("C:/Users/DE-98128/Privat/tradedata-master/")
+setwd("/home/peter/PycharmProjects/tradedata")
 
-trade_data <- read.csv("XETHZEUR.csv",header = FALSE)
-names(trade_data) <- c("Price","Volume","Timestamp","Buy_Sell","Market_Limit","X")
-
-trade_data <- trade_data %>% 
-  filter(Price!=0) %>% 
-  mutate(Time = anytime(Timestamp)) %>% 
-  select(Time,Price,Volume,Buy_Sell,Market_Limit) %>% 
-  mutate(Sell_Volume=if_else(Buy_Sell=='s',Volume,0)) %>% 
-  mutate(Buy_Volume=if_else(Buy_Sell=='b',Volume,0)) %>%
-  mutate(Acc_Volume=cumsum(Volume)) %>% 
-  mutate(Acc_Sell_Volume=cumsum(Sell_Volume)) %>%
-  mutate(Acc_Buy_Volume=cumsum(Buy_Volume)) %>%
-  select(-Sell_Volume,-Buy_Volume)
+source("prepareData.R")
+source("getReturns.R")
+source("prepareDataPolo.R")
+source("filterByInterval.R")
 
 
+
+eth <- prepareData("../fetcheddata/XETHZUSD.csv")
+
+
+btc <- prepareData("../fetcheddata/XXBTZUSD.csv")
+
+
+eth_polo <- prepareDataPolo("../fetcheddata/BTC_ETH_polo.csv")
+
+
+interval = 1/4
+
+eth_returns <- getReturns(eth,"2017-01-01","2017-04-30",by=interval)
+
+btc_returns <- getReturns(btc,"2017-01-01","2017-04-30",by=interval)
+
+eth_usd_polo <- filterByInterval(eth_polo,"2017-01-01","2017-04-30",by=interval)
+eth_usd_polo <- mutate(eth_usd_polo, Price_usd = eth_usd_polo$Price*btc_returns$Price)
+eth_usd_polo <- eth_usd_polo %>% mutate(Return=eth_usd_polo$Price_usd/lag(eth_usd_polo$Price_usd) -1)
+
+eth_usd_polo <- eth_usd_polo %>% mutate(Vol_Change=c(NA, diff(Diff_Volume))/c(NA, diff(Acc_Volume)))
+
+
+cor(eth_usd_polo$Return, eth_returns$Return, use = "complete.obs")
 
 # set time as index
 # write utility function for calculation of returns
 # get XBTUSD data and ETHUSD for comparison
 # 
-
 
 daily_vols <- lead(comp$Acc_Volume)/comp$Acc_Volume -1
 
